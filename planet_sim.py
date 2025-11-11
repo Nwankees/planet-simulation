@@ -2,7 +2,7 @@ import pygame
 import math
 pygame.init()
 
-WIDTH, HEIGHT = 800, 800
+WIDTH, HEIGHT = 1920, 1080
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Planet Simulation")
 
@@ -35,6 +35,16 @@ class Planet:
     def draw(self, win):
         x = self.x * self.SCALE + WIDTH / 2
         y = self.y * self.SCALE + HEIGHT / 2
+
+        if len(self.orbit) > 2:
+            updated_points = []
+            for point in self.orbit:
+                x, y = point
+                x = x * self.SCALE + WIDTH / 2
+                y = y * self.SCALE + HEIGHT / 2
+                updated_points.append((x, y))
+
+            pygame.draw.lines(win, self.color, False, updated_points, 2)
         pygame.draw.circle(win, self.color, (x,y), self.radius)
 
     def attraction(self, other):
@@ -89,6 +99,8 @@ def main():
     venus = Planet(0.723 * Planet.AU, 0, 14, WHITE, 4.8685 * 10**24)
     venus.y_vel = -35.02 * 1000
 
+
+
     planets = [sun, earth, mars, mercury, venus]
 
     while run:
@@ -97,7 +109,7 @@ def main():
 
 
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.QUIT or event.type == pygame.K_q:
                 run = False
 
         for planet in planets:
@@ -105,6 +117,7 @@ def main():
             planet.draw(WIN)
 
         pygame.display.update()
+        print(mars.orbit[-1])
     pygame.quit()
 
 main()
