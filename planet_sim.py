@@ -1,8 +1,22 @@
 import pygame
 import math
+
+DEFAULT_SCALE = 250
+DEFAULT_TIMESTEP = 0.5
+
+
+scale_input = input("Enter the scale you want to use(type \"Default\" to use the default scale value): ")
+timestep_input = input("Enter the number of days you want to simulate(type \"Default\" to use the default timestep value): ")
+
+settings = {
+    "Scale" : DEFAULT_SCALE if scale_input.lower() == "default" else scale_input,
+    "Timestep" : DEFAULT_TIMESTEP if timestep_input.lower() == "default" else timestep_input
+}
+
 pygame.init()
 
-WIDTH, HEIGHT = 1920, 1080
+zoom_factor = 1.0
+WIDTH, HEIGHT = 800, 800
 WIN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Planet Simulation")
 
@@ -11,17 +25,16 @@ YELLOW = (255, 255, 0)
 BLUE = (100, 149, 237)
 RED = (188, 39, 50)
 DARK_GREY = (80, 78, 81)
-ORANGE = (255, 165, 0)       # Jupiter
-GOLD = (218, 165, 32)        # Saturn
-LIGHT_BLUE = (173, 216, 230) # Uranus
-DARK_BLUE = (72, 61, 139)    # Neptune
-
+ORANGE = (255, 165, 0)
+GOLD = (218, 165, 32)
+LIGHT_BLUE = (173, 216, 230)
+DARK_BLUE = (72, 61, 139)
 
 class Planet:
     AU = 149.6E6 * 1000 # km -> m
     G = 6.67428e-11
-    SCALE = 250 / AU # 1AU = 100 pixels
-    TIMESTEP = 3600 * 24
+    SCALE = settings["Scale"] / AU
+    TIMESTEP = settings["Timestep"] * 24 * 60 * 60
 
     def __init__(self, x, y, radius, color, mass):
         self.x = x
@@ -38,15 +51,16 @@ class Planet:
         self.y_vel = 0
 
     def draw(self, win):
-        x = self.x * self.SCALE + WIDTH / 2
-        y = self.y * self.SCALE + HEIGHT / 2
+        scale = self.SCALE * zoom_factor
+        x = self.x * scale + WIDTH / 2
+        y = self.y * scale + HEIGHT / 2
 
         if len(self.orbit) > 2:
             updated_points = []
             for point in self.orbit:
                 x, y = point
-                x = x * self.SCALE + WIDTH / 2
-                y = y * self.SCALE + HEIGHT / 2
+                x = x * scale + WIDTH / 2
+                y = y * scale + HEIGHT / 2
                 updated_points.append((x, y))
 
             pygame.draw.lines(win, self.color, False, updated_points, 2)
@@ -85,13 +99,34 @@ class Planet:
         self.y += self.y_vel * self.TIMESTEP
         self.orbit.append((self.x, self.y))
 
+class Moon(Planet):
+    def update_position(self, planets):
+        total_fx = total_fy = 0
+
+        for planet in planets:
+            if self == planet:
+                continue
+
+            fx, fy = self.attraction(planet)
+            total_fx += fx
+            total_fy += fy
+
+        self.x_vel += total_fx / self.mass * self.TIMESTEP
+        self.y_vel += total_fy / self.mass * self.TIMESTEP
+
+        self.x += self.x_vel * self.TIMESTEP
+        self.y += self.y_vel * self.TIMESTEP
+        self.orbit.append((self.x, self.y))
+
 def main():
+    global zoom_factor
     run = True
     clock = pygame.time.Clock()
 
     sun = Planet(0, 0, 30, YELLOW, 1.98892 * 10**30)
     sun.sun = True
 
+    # Inner planets
     earth = Planet(-1 * Planet.AU, 0, 16, BLUE, 5.9742 * 10**24)
     earth.y_vel = 29.783 * 1000
 
@@ -117,7 +152,11 @@ def main():
     neptune = Planet(30.07 * Planet.AU, 0, 20, DARK_BLUE, 1.024 * 10 ** 26)
     neptune.y_vel = -5.43 * 1000
 
-    planets = [sun, earth, mars, mercury, venus, jupiter, saturn, uranus, neptune]
+    moon = Moon(earth.x + 384_400_000, earth.y, 6, WHITE, 7.34767309e22)
+    moon.y_vel = earth.y_vel - 1_022
+    moon.x_vel = earth.x_vel
+
+    planets = [sun, mercury, venus, earth, mars, jupiter, saturn, uranus, neptune, moon]
 
     while run:
         clock.tick(60)
@@ -128,12 +167,21 @@ def main():
             if event.type == pygame.QUIT or event.type == pygame.K_q:
                 run = False
 
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_EQUALS or event.key == pygame.K_PLUS:  # zoom in
+                    zoom_factor *= 1.1
+                elif event.key == pygame.K_MINUS or event.key == pygame.K_UNDERSCORE:  # zoom out
+                    zoom_factor /= 1.1
+
         for planet in planets:
-            planet.update_position(planets)
+            if planet == moon:
+                moon.update_position(planets)
+            else:
+                planet.update_position(planets)
             planet.draw(WIN)
 
         pygame.display.update()
-        print(mars.orbit[-1])
+
     pygame.quit()
 
 main()
